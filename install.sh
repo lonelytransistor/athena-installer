@@ -85,12 +85,12 @@ function _installOPKG() {
 
     # Add Entware
     local ENTWARE_REMOTE=https://bin.entware.net/armv7sf-k3.2/installer
-    wget --no-verbose "${ENTWARE_REMOTE}/opkg" -O "${OVERLAYROOT}/opt/bin/opkg"
-    wget --no-verbose "${ENTWARE_REMOTE}/opkg.conf" -O "${OVERLAYROOT}/opt/etc/opkg.conf"
-    wget --no-verbose "${ENTWARE_REMOTE}/ld-2.27.so" -O "${OVERLAYROOT}/opt/lib/ld-2.27.so"
-    wget --no-verbose "${ENTWARE_REMOTE}/libc-2.27.so" -O "${OVERLAYROOT}/opt/lib/libc-2.27.so"
-    wget --no-verbose "${ENTWARE_REMOTE}/libgcc_s.so.1" -O "${OVERLAYROOT}/opt/lib/libgcc_s.so.1"
-    wget --no-verbose "${ENTWARE_REMOTE}/libpthread-2.27.so" -O "${OVERLAYROOT}/opt/lib/libpthread-2.27.so"
+    wget "${ENTWARE_REMOTE}/opkg" -O "${OVERLAYROOT}/opt/bin/opkg"
+    wget "${ENTWARE_REMOTE}/opkg.conf" -O "${OVERLAYROOT}/opt/etc/opkg.conf"
+    wget "${ENTWARE_REMOTE}/ld-2.27.so" -O "${OVERLAYROOT}/opt/lib/ld-2.27.so"
+    wget "${ENTWARE_REMOTE}/libc-2.27.so" -O "${OVERLAYROOT}/opt/lib/libc-2.27.so"
+    wget "${ENTWARE_REMOTE}/libgcc_s.so.1" -O "${OVERLAYROOT}/opt/lib/libgcc_s.so.1"
+    wget "${ENTWARE_REMOTE}/libpthread-2.27.so" -O "${OVERLAYROOT}/opt/lib/libpthread-2.27.so"
     sed -i 's|http://|https://|g' ${OVERLAYROOT}/opt/etc/opkg.conf
     chmod 755 "${OVERLAYROOT}/opt/bin/opkg"
     
