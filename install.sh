@@ -159,7 +159,7 @@ function install() {
     fw_setenv athena_load_img 'ext4load mmc ${mmcdev}:${mmcpart} ${loadaddr} ${athena_img}'
     fw_setenv athena_boot_mmc 'mmc dev ${mmcdev}; if mmc rescan; then if run athena_load_img; then if run athena_load_fdt; then bootz ${loadaddr} - ${fdt_addr}; fi; fi; fi;'
     fw_setenv athena_set_args 'setenv bootargs console=${console},${baudrate} root=/dev/mmcblk2p${active_partition} root_ro=/dev/mmcblk2p${active_partition} root_rw=/dev/mmcblk2p${athena_home_partition} quiet panic=20 systemd.crash_reboot crashkernel=64M'
-    fw_setenv athena_boot 'if test ${athena_fail} != 1; then setenv athena_fail 1; saveenv; then run athena_set_bootargs; setenv mmcpart ${active_partition}; run athena_mmcboot; fi;'
+    fw_setenv athena_boot 'if test ${athena_fail} != 1; then setenv athena_fail 1; saveenv; then run athena_set_bootargs; setenv mmcpart ${active_partition}; run athena_boot_mmc; fi;'
     
     echo -e "${BRED}Entering brickable phase! ${NORMAL}"
     read -p "Continue? (y/n) " -r REPLY ; echo -ne "\n"
