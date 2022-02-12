@@ -1,8 +1,17 @@
 #!/usr/bin/env bash
 set -e
-mount | grep /home | head -n1 | sed -n 's/\(\/dev\/mmcblk2p4\).*/\1/p' | grep /dev/mmcblk2p4 2&>1 > /dev/null || { echo Please mount home partition before continuing ; exit 127 }
-[ $(uname -m) != "armv7hf" ] || { echo You are not on a reMarkable 2 ; exit 127 }
-[ $UID != 0 ] || { echo You are not root ; exit 127 }
+if ! mount | grep /home | head -n1 | sed -n 's/\(\/dev\/mmcblk2p4\).*/\1/p' | grep /dev/mmcblk2p4 2>&1 > /dev/null ; then
+    echo Please mount home partition before continuing
+    exit 127
+fi
+if [ $(uname -m) != "armv7hf" ]; then
+    echo You are not on a reMarkable 2!
+    exit 127
+fi
+if [ $UID != 0 ]; then
+    echo You are not root!
+    exit 127
+fi
 
 NORMAL="\e[0m"
 BRED="\e[1;31m"
@@ -60,7 +69,7 @@ function _opkg() {
                     [ "${pArch}" != "" ] && echo -ne "Architecture: ${pArch}\n" >> "${_opkgRootDir}/${_opkgDir}/status"
                     echo -ne "Installed-Time: $(date +%s)\n" >> "${_opkgRootDir}/${_opkgDir}/status"
                     echo -ne "\n" >> "${_opkgRootDir}/${_opkgDir}/status"
-                    return
+                    break
                 fi
             fi
         done
