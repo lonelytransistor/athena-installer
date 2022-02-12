@@ -4,6 +4,21 @@ mount | grep /home | head -n1 | sed -n 's/\(\/dev\/mmcblk2p4\).*/\1/p' | grep /d
 [ $(uname -m) != "armv7hf" ] || { echo You are not on a reMarkable 2 ; exit 127 }
 [ $UID != 0 ] || { echo You are not root ; exit 127 }
 
+NORMAL="\e[0m"
+BRED="\e[1;31m"
+BGREEN="\e[1;32m"
+BORANGE="\e[1;33m"
+BBLUE="\e[1;34m"
+BYELLOW="\e[1;93m"
+WRED="\e[7;47;31m"
+FRED="\e[5;101;37m"
+BSPLASH="\e[0;103;30m"
+BSPLASH2="\e[0;104;30m"
+
+OVERLAYROOT="/home/.rootdir"
+_opkgRootDir="${OVERLAYROOT}"
+_opkgTmpDir="/tmp/opkg.bash/"
+
 #OPKG
 _opkgDir="opt/lib/opkg"
 _opkgRepoUrl=("https://lonelytransistor.github.io/athena" "https://toltec-dev.org/stable/rmall" "https://toltec-dev.org/stable/rm2" "https://bin.entware.net/armv7sf-k3.2")
@@ -53,21 +68,6 @@ function _opkg() {
 }
 #
 
-NORMAL="\e[0m"
-BRED="\e[1;31m"
-BGREEN="\e[1;32m"
-BORANGE="\e[1;33m"
-BBLUE="\e[1;34m"
-BYELLOW="\e[1;93m"
-WRED="\e[7;47;31m"
-FRED="\e[5;101;37m"
-BSPLASH="\e[0;103;30m"
-BSPLASH2="\e[0;104;30m"
-
-OVERLAYROOT="/home/.rootdir"
-_opkgRootDir="${OVERLAYROOT}"
-_opkgTmpDir="/tmp/opkg.bash/"
-
 function changeBootcmd() {
     echo -e "   ${BYELLOW}Changing bootcmd...${NORMAL}"
     echo -e "      ${BYELLOW}Backing up bootcmd to memory...${NORMAL}"
@@ -103,6 +103,11 @@ function install() {
     _opkg update
     _opkg install athena-hook
     _opkg install athena-linux
+    
+    echo -e "${BGREEN}Moving hooks into /home.${NORMAL}"
+    mv ${_opkgRootDir}/home/root/.xochitlPlugins /home/root/.xochitlPlugins
+    rmdir --ignore-fail-on-non-empty ${_opkgRootDir}/home/root
+    rmdir --ignore-fail-on-non-empty ${_opkgRootDir}/home
     
     echo -e "${BRED}Patching Athena LD_PRELOAD into xochitl.service.${NORMAL}"
     sed -i '/(Environment=QML_XHR_ALLOW_FILE_READ|Environment=QML_XHR_ALLOW_FILE_WRITE|Environment=LD_PRELOAD)/d' /lib/systemd/system/xochitl.service 
@@ -145,6 +150,9 @@ function uninstall() {
     
     echo -e "${BGREEN}Erasing overlayfs root.${NORMAL}"
     rm -rf ${OVERLAYROOT}
+    
+    echo -e "${BGREEN}Removing hooks from /home.${NORMAL}"
+    rm -rf /home/root/.xochitlPlugins
     
     echo -e "${BRED}Removing Athena LD_PRELOAD from xochitl.service.${NORMAL}"
     sed -i '/(Environment=QML_XHR_ALLOW_FILE_READ|Environment=QML_XHR_ALLOW_FILE_WRITE|Environment=LD_PRELOAD)/d' /lib/systemd/system/xochitl.service
