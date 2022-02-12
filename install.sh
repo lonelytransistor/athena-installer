@@ -4,7 +4,7 @@ if ! mount | grep /home | head -n1 | sed -n 's/\(\/dev\/mmcblk2p4\).*/\1/p' | gr
     echo Please mount home partition before continuing
     exit 127
 fi
-if [ $(uname -m) != "armv7hf" ]; then
+if [ $(uname -m) != "armv7l" ]; then
     echo You are not on a reMarkable 2!
     exit 127
 fi
@@ -30,8 +30,10 @@ _opkgTmpDir="/tmp/opkg.bash/"
 
 #OPKG
 _opkgDir="opt/lib/opkg"
-_opkgRepoUrl=("https://lonelytransistor.github.io/athena" "https://toltec-dev.org/stable/rmall" "https://toltec-dev.org/stable/rm2" "https://bin.entware.net/armv7sf-k3.2")
-_opkgRepoNames=(athena toltecrmall toltecrm2 entware)
+#_opkgRepoUrl=("https://lonelytransistor.github.io/athena" "https://toltec-dev.org/stable/rmall" "https://toltec-dev.org/stable/rm2" "https://bin.entware.net/armv7sf-k3.2")
+#_opkgRepoNames=(athena toltecrmall toltecrm2 entware)
+_opkgRepoUrl=("https://lonelytransistor.github.io/athena" "https://bin.entware.net/armv7sf-k3.2")
+_opkgRepoNames=(athena entware)
 function _opkg() {
     set -e
     
@@ -119,8 +121,9 @@ function install() {
     rmdir --ignore-fail-on-non-empty ${_opkgRootDir}/home
     
     echo -e "${BRED}Patching Athena LD_PRELOAD into xochitl.service.${NORMAL}"
-    sed -i '/(Environment=QML_XHR_ALLOW_FILE_READ|Environment=QML_XHR_ALLOW_FILE_WRITE|Environment=LD_PRELOAD)/d' /lib/systemd/system/xochitl.service 
+    sed -Ei '/Environment=(QML_XHR_ALLOW_FILE_READ|QML_XHR_ALLOW_FILE_WRITE|LD_PRELOAD).*$/d' /lib/systemd/system/xochitl.service
     sed -i "s|\[Service\]|[Service]\nEnvironment=QML_XHR_ALLOW_FILE_READ=1\nEnvironment=QML_XHR_ALLOW_FILE_WRITE=1\nEnvironment=LD_PRELOAD=${OVERLAYROOT}/usr/libexec/libAthenaXochitl.so|" /lib/systemd/system/xochitl.service
+    systemctl daemon-reload
     
     echo -e "${BGREEN}Installing Athena uboot vars...${NORMAL}"
     fw_setenv athena_fail 1
@@ -133,14 +136,16 @@ function install() {
     fw_setenv athena_set_args 'setenv bootargs console=${console},${baudrate} root=/dev/mmcblk2p${active_partition} root_ro=/dev/mmcblk2p${active_partition} root_rw=/dev/mmcblk2p${athena_home_partition} quiet panic=20 systemd.crash_reboot crashkernel=64M'
     fw_setenv athena_boot 'if test ${athena_fail} != 1; then setenv athena_fail 1; saveenv; then run athena_set_bootargs; setenv mmcpart ${active_partition}; run athena_mmcboot; fi;'
     
-    echo -e "${BRED}Entering brickable phase! Continue? (y/n) ${NORMAL}"
+    echo -e "${BRED}Entering brickable phase! ${NORMAL}"
+    read -p "Continue? (y/n) " -n 1 -r REPLY
     [[ $REPLY =~ ^[Yy]$ ]] && changeBootcmd INSTALL || echo -e "${BRED}Bootloader has NOT been installed!${NORMAL}"
     
     systemctl start xochitl
     echo -e "${BGREEN}Athena has been installed ${BGREEN}:)${NORMAL}"
 }
 function uninstall() {
-    echo -e "${BRED}Entering brickable phase! Continue? (y/n) ${NORMAL}"
+    echo -e "${BRED}Entering brickable phase! ${NORMAL}"
+    read -p "Continue? (y/n) " -n 1 -r REPLY
     [[ $REPLY =~ ^[Yy]$ ]] && changeBootcmd UNINSTALL || return 1
     
     echo -e "${BGREEN}Removing Athena uboot vars...${NORMAL}"
@@ -164,18 +169,19 @@ function uninstall() {
     rm -rf /home/root/.xochitlPlugins
     
     echo -e "${BRED}Removing Athena LD_PRELOAD from xochitl.service.${NORMAL}"
-    sed -i '/(Environment=QML_XHR_ALLOW_FILE_READ|Environment=QML_XHR_ALLOW_FILE_WRITE|Environment=LD_PRELOAD)/d' /lib/systemd/system/xochitl.service
+    sed -Ei '/Environment=(QML_XHR_ALLOW_FILE_READ|QML_XHR_ALLOW_FILE_WRITE|LD_PRELOAD).*$/d' /lib/systemd/system/xochitl.service
+    systemctl daemon-reload
     
     systemctl start xochitl
     echo -e "${BGREEN}Athena has been removed. ${BRED}:(${NORMAL}"
 }
 
-if fw_printenv | grep Athena > /dev/null ; then
+if fw_printenv | grep athena > /dev/null ; then
     echo -e "${BGREEN}Athena detected.${NORMAL}"
     read -p "Uninstall? (y/n) " -n 1 -r REPLY
-    [[ $REPLY =~ ^[Yy]$ ]] && install
+    [[ $REPLY =~ ^[Yy]$ ]] && uninstall
 else
     echo -e "${BORANGE}Athena has not been detected.${NORMAL}"
     read -p "Install? (y/n) " -n 1 -r REPLY
-    [[ $REPLY =~ ^[Yy]$ ]] && uninstall
+    [[ $REPLY =~ ^[Yy]$ ]] && install
 fi
