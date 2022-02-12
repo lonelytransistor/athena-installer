@@ -137,7 +137,7 @@ function install() {
     fw_setenv athena_boot 'if test ${athena_fail} != 1; then setenv athena_fail 1; saveenv; then run athena_set_bootargs; setenv mmcpart ${active_partition}; run athena_mmcboot; fi;'
     
     echo -e "${BRED}Entering brickable phase! ${NORMAL}"
-    read -p "Continue? (y/n) " -n 1 -r REPLY
+    read -p "Continue? (y/n) " -r REPLY ; echo -ne "\n"
     [[ $REPLY =~ ^[Yy]$ ]] && changeBootcmd INSTALL || echo -e "${BRED}Bootloader has NOT been installed!${NORMAL}"
     
     systemctl start xochitl
@@ -145,10 +145,10 @@ function install() {
 }
 function uninstall() {
     echo -e "${BRED}Entering brickable phase! ${NORMAL}"
-    read -p "Continue? (y/n) " -n 1 -r REPLY
+    read -p "Continue? (y/n) " -r REPLY ; echo -ne "\n"
     [[ $REPLY =~ ^[Yy]$ ]] && changeBootcmd UNINSTALL || return 1
     
-    echo -e "${BGREEN}Removing Athena uboot vars...${NORMAL}"
+    echo -e "${BORANGE}Removing Athena uboot vars...${NORMAL}"
     fw_setenv athena_fail
     fw_setenv athena_home_partition
     fw_setenv athena_dtb
@@ -159,11 +159,11 @@ function uninstall() {
     fw_setenv athena_set_args
     fw_setenv athena_boot
     
-    echo -e "${BORANGE}Removing Athena...${NORMAL}"
+    echo -e "${BGREEN}Removing Athena...${NORMAL}"
     systemctl stop xochitl
     
-    echo -e "${BGREEN}Erasing overlayfs root.${NORMAL}"
-    rm -rf ${OVERLAYROOT}
+    read -p "${BORANGE}Erase overlayfs root (recommended)? (y/n) " -r REPLY ; echo -ne "${NORMAL}\n"
+    [[ $REPLY =~ ^[Yy]$ ]] && rm -rf ${OVERLAYROOT}
     
     echo -e "${BGREEN}Removing hooks from /home.${NORMAL}"
     rm -rf /home/root/.xochitlPlugins
@@ -178,10 +178,10 @@ function uninstall() {
 
 if fw_printenv | grep athena > /dev/null ; then
     echo -e "${BGREEN}Athena detected.${NORMAL}"
-    read -p "Uninstall? (y/n) " -n 1 -r REPLY
+    read -p "Uninstall? (y/n) " -r REPLY ; echo -ne "\n"
     [[ $REPLY =~ ^[Yy]$ ]] && uninstall
 else
     echo -e "${BORANGE}Athena has not been detected.${NORMAL}"
-    read -p "Install? (y/n) " -n 1 -r REPLY
+    read -p "Install? (y/n) " -r REPLY ; echo -ne "\n"
     [[ $REPLY =~ ^[Yy]$ ]] && install
 fi
