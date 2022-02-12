@@ -162,7 +162,7 @@ function install() {
     fw_setenv athena_boot 'if test ${athena_fail} != 1; then setenv athena_fail 1; saveenv; then run athena_set_bootargs; setenv mmcpart ${active_partition}; run athena_boot_mmc; fi;'
     
     echo -e "${BRED}Entering brickable phase! ${NORMAL}"
-    read -p "Continue? (y/n) " -r REPLY ; echo -ne "\n"
+    echo -ne "${BORANGE}" ; read -p "Continue? (y/n) " -r REPLY ; echo -ne "\n" ; echo -ne "${NORMAL}\n"
     [[ $REPLY =~ ^[Yy]$ ]] && changeBootcmd INSTALL || echo -e "${BRED}Bootloader has NOT been installed!${NORMAL}"
     
     systemctl start xochitl
@@ -170,7 +170,7 @@ function install() {
 }
 function uninstall() {
     echo -e "${BRED}Entering brickable phase! ${NORMAL}"
-    read -p "Continue? (y/n) " -r REPLY ; echo -ne "\n"
+    echo -ne "${BORANGE}" ; read -p "Continue? (y/n) " -r REPLY ; echo -ne "\n" ; echo -ne "${NORMAL}\n"
     [[ $REPLY =~ ^[Yy]$ ]] && changeBootcmd UNINSTALL || return 1
     
     echo -e "${BORANGE}Removing Athena uboot vars...${NORMAL}"
@@ -187,7 +187,7 @@ function uninstall() {
     echo -e "${BGREEN}Removing Athena...${NORMAL}"
     systemctl stop xochitl
     
-    read -p "${BORANGE}Erase overlayfs root (recommended)? (y/n) " -r REPLY ; echo -ne "${NORMAL}\n"
+    echo -ne "${BORANGE}" ; read -p "Erase overlayfs root (recommended)? (y/n) " -r REPLY ; echo -ne "${NORMAL}\n"
     [[ $REPLY =~ ^[Yy]$ ]] && rm -rf ${OVERLAYROOT}
     
     echo -e "${BGREEN}Removing hooks from /home.${NORMAL}"
@@ -201,12 +201,14 @@ function uninstall() {
     echo -e "${BGREEN}Athena has been removed. ${BRED}:(${NORMAL}"
 }
 
+echo -en "${BGREEN}Hello to the Athena setup, the first kernel and distro for the reMarkable 2 tablet!${NORMAL}\n"
+echo -en "${BYELLOW}Please note that this piece of software is highly experimental and you proceed at your own risk.${NORMAL}\n\n"
 if fw_printenv | grep athena > /dev/null ; then
-    echo -e "${BGREEN}Athena detected.${NORMAL}"
-    read -p "Uninstall? (y/n) " -r REPLY ; echo -ne "\n"
+    echo -e "${BGREEN}Athena has been detected.${NORMAL}"
+    echo -ne "${BORANGE}" ; read -p "Uninstall? (y/n) " -r REPLY ; echo -ne "${NORMAL}\n"
     [[ $REPLY =~ ^[Yy]$ ]] && uninstall
 else
-    echo -e "${BORANGE}Athena has not been detected.${NORMAL}"
-    read -p "Install? (y/n) " -r REPLY ; echo -ne "\n"
+    echo -e "${BGREEN}Athena has not been detected.${NORMAL}"
+    echo -ne "${BORANGE}" ; read -p "Install? (y/n) " -r REPLY ; echo -ne "${NORMAL}\n"
     [[ $REPLY =~ ^[Yy]$ ]] && install
 fi
