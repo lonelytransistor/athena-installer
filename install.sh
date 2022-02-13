@@ -86,7 +86,7 @@ CONF
     local opkg="${opkg_path} --force-depends --force-space --conf=${opkg_conf} --offline-root=${OVERLAYROOT}/ --tmp-dir=${OVERLAYROOT}/opt/tmp/ --lists-dir=${OVERLAYROOT}/opt/var/opkg-lists/"
     PATH=/tmp:$PATH ${opkg} update
     PATH=/tmp:$PATH ${opkg} install entware-opt ca-certificates wget-ssl athena-hook athena-linux coreutils-df
-    cp "{OVERLAYROOT}/opt/bin/df" "{OVERLAYROOT}/bin/df"
+    cp "${OVERLAYROOT}/opt/bin/df" "${OVERLAYROOT}/bin/df"
     
     #Remove temporary files
     rm "${wget}" "${opkg_path}"
