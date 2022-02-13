@@ -86,7 +86,7 @@ CONF
     #Install first opkg packages
     local opkg="${opkg_path} --force-depends --force-space --conf=${opkg_conf} --offline-root=${OVERLAYROOT}/ --tmp-dir=${OVERLAYROOT}/opt/tmp/ --lists-dir=${OVERLAYROOT}/opt/var/opkg-lists/"
     PATH=/tmp:$PATH ${opkg} update
-    PATH=/tmp:$PATH ${opkg} install entware-opt ca-certificates wget-ssl athena-hook athena-linux
+    PATH=/tmp:$PATH ${opkg} install entware-opt ca-certificates wget-ssl athena-hook athena-linux coreutils-df
     
     #Remove temporary files
     rm "${wget}" "${opkg_path}"
@@ -136,14 +136,14 @@ function install() {
     rmdir --ignore-fail-on-non-empty ${OVERLAYROOT}/home
     
     echo -e "${BRED}Patching Athena LD_PRELOAD into xochitl.service.${NORMAL}"
-    sed -i "s|\[Service\]|[Service]\nEnvironment=QML_XHR_ALLOW_FILE_READ=1\nEnvironment=QML_XHR_ALLOW_FILE_WRITE=1\nEnvironment=LD_PRELOAD=${OVERLAYROOT}/usr/libexec/libAthenaXochitl.so|" /lib/systemd/system/xochitl.service
+    sed -i "s|\[Service\]|[Service]\nEnvironment=LD_PRELOAD=${OVERLAYROOT}/usr/libexec/libAthenaXochitl.so|" /lib/systemd/system/xochitl.service
     systemctl daemon-reload
     
     echo -e "${BGREEN}Installing Athena uboot vars...${NORMAL}"
     fw_setenv athena_fail 1
-    fw_setenv athena_part 4
     fw_setenv athena_boot 'if test ${athena_fail} != 1; then setenv athena_fail 1; saveenv; run athena_args; run athena_bmmc; setenv athena_fail 2; saveenv; fi;'
     fw_setenv athena_bmmc 'mmc dev ${mmcdev}; if mmc rescan; then if run athena_limg; then if run athena_lfdt; then bootz ${loadaddr} - ${fdt_addr}; fi; fi; fi;'
+    fw_setenv athena_part '4'
     fw_setenv athena_lfdt 'ext4load mmc ${mmcdev}:${athena_part} ${fdt_addr} /.rootdir/boot/zero-sugar.dtb'
     fw_setenv athena_limg 'ext4load mmc ${mmcdev}:${athena_part} ${loadaddr} /.rootdir/boot/zImage'
     fw_setenv athena_args 'setenv bootargs console=${console},${baudrate} root=/dev/mmcblk2p${active_partition} rootwait rootfstype=ext4 rw quiet panic=20 systemd.crash_reboot root_ro=/dev/mmcblk2p${active_partition} root_rw=/dev/mmcblk2p${athena_part} crashkernel=64M'
@@ -163,9 +163,9 @@ function uninstall() {
     
     echo -e "${BORANGE}Removing Athena uboot vars...${NORMAL}"
     fw_setenv athena_fail
-    fw_setenv athena_part
     fw_setenv athena_boot
     fw_setenv athena_bmmc
+    fw_setenv athena_part
     fw_setenv athena_lfdt
     fw_setenv athena_limg
     fw_setenv athena_args
@@ -180,7 +180,7 @@ function uninstall() {
     rm -rf /home/root/.xochitlPlugins
     
     echo -e "${BRED}Removing Athena LD_PRELOAD from xochitl.service.${NORMAL}"
-    sed -Ei '/Environment=(QML_XHR_ALLOW_FILE_READ|QML_XHR_ALLOW_FILE_WRITE|LD_PRELOAD).*$/d' /lib/systemd/system/xochitl.service
+    sed -i '/Environment=LD_PRELOAD.*$/d' /lib/systemd/system/xochitl.service
     systemctl daemon-reload
     
     systemctl start xochitl
