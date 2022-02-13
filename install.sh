@@ -8,6 +8,10 @@ if [ $(uname -m) != "armv7l" ]; then
     echo You are not on a reMarkable 2!
     exit 127
 fi
+if [[ $(uname -r) =~ "athena" ]]; then
+    echo You are inside athena! On the fly installation is not supported!
+    exit 127
+fi
 if [ $UID != 0 ]; then
     echo You are not root!
     exit 127
@@ -25,84 +29,69 @@ BSPLASH="\e[0;103;30m"
 BSPLASH2="\e[0;104;30m"
 
 OVERLAYROOT="/home/.rootdir"
-_opkgRootDir="${OVERLAYROOT}"
-_opkgTmpDir="/tmp/opkg.bash/"
-
+OVERLAYWORKROOT="/home/.workdir"
 #OPKG
-_opkgDir="opt/lib/opkg"
-#_opkgRepoUrl=("https://lonelytransistor.github.io/athena" "https://toltec-dev.org/stable/rmall" "https://toltec-dev.org/stable/rm2" "https://bin.entware.net/armv7sf-k3.2")
-#_opkgRepoNames=(athena toltecrmall toltecrm2 entware)
-_opkgRepoUrl=("https://lonelytransistor.github.io/athena" "https://bin.entware.net/armv7sf-k3.2")
-_opkgRepoNames=(athena entware)
-function _opkg() {
-    set -e
-    
-    if [ "$1" == "update" ]; then
-        mkdir -p "${_opkgRootDir}" "${_opkgRootDir}/${_opkgDir}/info" "${_opkgTmpDir}"
-        
-        for i in "${!_opkgRepoNames[@]}"; do
-            wget "${_opkgRepoUrl[$i]}/Packages" -O "${_opkgTmpDir}/${_opkgRepoNames[$i]}"
-        done
-    elif [ "$1" == "install" ]; then
-        for i in "${!_opkgRepoNames[@]}"; do
-            echo Checking in ${_opkgRepoNames[$i]}
-            
-            pData=$(cat "${_opkgTmpDir}/${_opkgRepoNames[$i]}" | awk "/Package: $2\$/ {p=1; next};/Package:/ {p=0}; {if (p==1) print \$0}")
-            if [ "$pData" != "" ]; then
-                pName="$2"
-                pUrl=$(grep Filename <<< "${pData}" | tr ': ' '\n' | tail -n1)
-                pVer=$(grep Version <<< "${pData}" | tr ': ' '\n' | tail -n1)
-                pArch=$(grep Architecture <<< "${pData}" | tr ': ' '\n' | tail -n1)
-                pDeps=$(grep Depends <<< "${pData}" | tr ': ' '\n' | tail -n1)
-                
-                if [ "${pUrl}" != "" ] && [ "${pVer}" != "" ]; then
-                    wget "${_opkgRepoUrl[$i]}/${pUrl}" -O "${_opkgTmpDir}/pkg.tar.gz"
-                    
-                    tar -xzvf "${_opkgTmpDir}/pkg.tar.gz" -C "${_opkgTmpDir}/" ./data.tar.gz ./control.tar.gz
-                    tar -xzvf "${_opkgTmpDir}/control.tar.gz" -C "${_opkgTmpDir}/" ./control
-                    
-                    tar -xzvf "${_opkgTmpDir}/data.tar.gz" -C "${_opkgRootDir}/" | sed -n "s|.\(/.*[^/]\)$|\1|p" > "${_opkgRootDir}/${_opkgDir}/info/${pName}.list"
-                    cat "${_opkgTmpDir}/control" > "${_opkgRootDir}/${_opkgDir}/info/${pName}.control"
-
-                    echo -ne "Package: ${pName}\n" >> "${_opkgRootDir}/${_opkgDir}/status"
-                    echo -ne "Version: ${pVer}\n" >> "${_opkgRootDir}/${_opkgDir}/status"
-                    [ "${pDeps}" != "" ] && echo -ne "Depends: ${pArch}\n" >> "${_opkgRootDir}/${_opkgDir}/status"
-                    echo -ne "Status: install user installed\n" >> "${_opkgRootDir}/${_opkgDir}/status"
-                    [ "${pArch}" != "" ] && echo -ne "Architecture: ${pArch}\n" >> "${_opkgRootDir}/${_opkgDir}/status"
-                    echo -ne "Installed-Time: $(date +%s)\n" >> "${_opkgRootDir}/${_opkgDir}/status"
-                    echo -ne "\n" >> "${_opkgRootDir}/${_opkgDir}/status"
-                    break
-                fi
-            fi
-        done
-    fi
-}
 function _installOPKG() {
-    dir_list=( bin etc lib/opkg tmp var/lock )
-    for dir in "${dir_list[@]}"; do
-        mkdir -p ${OVERLAYROOT}/opt/${dir}
-    done
+    mkdir -p ${OVERLAYROOT}/{bin,usr/bin,opt/usr/bin,opt/bin,opt/etc/opkg.d,opt/lib/opkg,opt/tmp,opt/var/lock,opt/var/opkg-lists}
 
-    # Add Entware
-    local ENTWARE_REMOTE=https://bin.entware.net/armv7sf-k3.2/installer
-    wget "${ENTWARE_REMOTE}/opkg" -O "${OVERLAYROOT}/opt/bin/opkg"
-    wget "${ENTWARE_REMOTE}/opkg.conf" -O "${OVERLAYROOT}/opt/etc/opkg.conf"
-    wget "${ENTWARE_REMOTE}/ld-2.27.so" -O "${OVERLAYROOT}/opt/lib/ld-2.27.so"
-    wget "${ENTWARE_REMOTE}/libc-2.27.so" -O "${OVERLAYROOT}/opt/lib/libc-2.27.so"
-    wget "${ENTWARE_REMOTE}/libgcc_s.so.1" -O "${OVERLAYROOT}/opt/lib/libgcc_s.so.1"
-    wget "${ENTWARE_REMOTE}/libpthread-2.27.so" -O "${OVERLAYROOT}/opt/lib/libpthread-2.27.so"
-    sed -i 's|http://|https://|g' ${OVERLAYROOT}/opt/etc/opkg.conf
-    chmod 755 "${OVERLAYROOT}/opt/bin/opkg"
+    #Download wget
+    local wget_remote="http://toltec-dev.org/thirdparty/bin/wget-v1.21.1"
+    local wget="/tmp/wget"
+    wget -q "${wget_remote}" -O "${wget}"
+    chmod 755 "${wget}"
     
-    # Add Toltec
-    sed -i '/^src\/gz\b.*\bhttps:\/\/toltec\.delab\.re\//d' ${OVERLAYROOT}/opt/etc/opkg.conf
-    sed -i '/^src\/gz\b.*\bhttps:\/\/toltec-dev\.org\//d' ${OVERLAYROOT}/opt/etc/opkg.conf
-    echo "src/gz toltec https://toltec-dev.org/stable" >> ${OVERLAYROOT}/opt/etc/opkg.conf
-    # Add Athena
-    echo "src/gz athena https://lonelytransistor.github.io/athena" >> ${OVERLAYROOT}/opt/etc/opkg.conf
+    #Download opkg
+    local opkg_remote="https://bin.entware.net/armv7sf-k3.2/installer/opkg"
+    local opkg_path="${OVERLAYROOT}/opt/usr/bin/opkg"
+    wget "${opkg_remote}" -O "${opkg_path}"
+    chmod 755 "${opkg_path}"
+    
+    #Configure opkg
+    local opkg_conf="${OVERLAYROOT}/opt/etc/opkg.conf"
+    local opkg_conf_d="${OVERLAYROOT}/opt/etc/opkg.d/"
+    cat > "${opkg_conf}" << CONF
+# Opkg configuration
+dest root /
+dest ram /opt/tmp
+dest overlayfs ${OVERLAYROOT}
+lists_dir ext /opt/var/opkg-lists
+option tmp_dir /opt/tmp
+CONF
+    cat > "${opkg_conf_d}"/10-entware.conf << CONF
+arch all 100
+arch armv7-3.2 160
+src/gz entware https://bin.entware.net/armv7sf-k3.2
+CONF
+    cat > "${opkg_conf_d}"/15-toltec.conf << CONF
+arch rmall 200
+src/gz toltec-rmall https://toltec-dev.org/stable/rmall
+arch rm2 250
+src/gz toltec-rm2 https://toltec-dev.org/stable/rm2
+CONF
+    cat > "${opkg_conf_d}"/20-athena.conf << CONF
+arch rm2 300
+src/gz athena https://lonelytransistor.github.io/athena
+CONF
+    for fconf in $(find "${opkg_conf_d}" -type f -name '*.conf'); do
+        cat ${fconf} >> ${opkg_conf}
+    done
+    chmod 777 "${OVERLAYROOT}/opt/tmp"
+    ln -sf /etc/passwd "${OVERLAYROOT}/opt/etc/passwd"
+    ln -sf /etc/group "${OVERLAYROOT}/opt/etc/group"
+    ln -sf /etc/shells "${OVERLAYROOT}/opt/etc/shells"
+    ln -sf /etc/shadow "${OVERLAYROOT}/opt/etc/shadow"
+    ln -sf /etc/gshadow "${OVERLAYROOT}/opt/etc/gshadow"
+    ln -sf /etc/localtime "${OVERLAYROOT}/opt/etc/localtime"
+    
+    #Install first opkg packages
+    local opkg="${opkg_path} --force-depends --force-space --conf=${opkg_conf} --offline-root=${OVERLAYROOT}/ --tmp-dir=${OVERLAYROOT}/opt/tmp/ --lists-dir=${OVERLAYROOT}/opt/var/opkg-lists/"
+    PATH=/tmp:$PATH ${opkg} update
+    PATH=/tmp:$PATH ${opkg} install entware-opt ca-certificates wget-ssl athena-hook athena-linux
+    
+    #Remove temporary files
+    rm "${wget}" "${opkg_path}"
 }
-#
-
+# Change bootcmd
 function changeBootcmd() {
     echo -e "   ${BYELLOW}Changing bootcmd...${NORMAL}"
     echo -e "      ${BYELLOW}Backing up bootcmd to memory...${NORMAL}"
@@ -129,37 +118,35 @@ function changeBootcmd() {
     fw_printenv bootcmd
     echo -e "      ${BORANGE}Done.${NORMAL}"
 }
-
+# General installation
 function install() {
     echo -e "${BORANGE}Installing Athena...${NORMAL}"
     systemctl stop xochitl
     
     echo -e "${BGREEN}Preparing overlayfs root.${NORMAL}"
+    mkdir -p ${OVERLAYROOT}/{etc,lib/systemd/system/}
+    sed -r '\~^/dev/mmcblk[0-9]+p[0-9]+\s+/home\s~d' /etc/fstab > ${OVERLAYROOT}/etc/fstab
+    sed "s|PATH=\"\(.*\)\"$|PATH=\"/opt/bin:/opt/sbin:\1\"|" /etc/profile > ${OVERLAYROOT}/etc/profile
+    sed "s|\[Service\]|[Service]\nEnvironment=QML_XHR_ALLOW_FILE_READ=1\nEnvironment=QML_XHR_ALLOW_FILE_WRITE=1\nEnvironment=LD_PRELOAD=/usr/libexec/libAthenaXochitl.so|" /lib/systemd/system/xochitl.service > ${OVERLAYROOT}/lib/systemd/system/xochitl.service
     _installOPKG
-    _opkg update
-    _opkg install athena-hook
-    _opkg install athena-linux
     
     echo -e "${BGREEN}Moving hooks into /home.${NORMAL}"
-    mv ${_opkgRootDir}/home/root/.xochitlPlugins /home/root/.xochitlPlugins
-    rmdir --ignore-fail-on-non-empty ${_opkgRootDir}/home/root
-    rmdir --ignore-fail-on-non-empty ${_opkgRootDir}/home
+    mv ${OVERLAYROOT}/home/root/.xochitlPlugins /home/root/.xochitlPlugins
+    rmdir --ignore-fail-on-non-empty ${OVERLAYROOT}/home/root
+    rmdir --ignore-fail-on-non-empty ${OVERLAYROOT}/home
     
     echo -e "${BRED}Patching Athena LD_PRELOAD into xochitl.service.${NORMAL}"
-    sed -Ei '/Environment=(QML_XHR_ALLOW_FILE_READ|QML_XHR_ALLOW_FILE_WRITE|LD_PRELOAD).*$/d' /lib/systemd/system/xochitl.service
     sed -i "s|\[Service\]|[Service]\nEnvironment=QML_XHR_ALLOW_FILE_READ=1\nEnvironment=QML_XHR_ALLOW_FILE_WRITE=1\nEnvironment=LD_PRELOAD=${OVERLAYROOT}/usr/libexec/libAthenaXochitl.so|" /lib/systemd/system/xochitl.service
     systemctl daemon-reload
     
     echo -e "${BGREEN}Installing Athena uboot vars...${NORMAL}"
     fw_setenv athena_fail 1
-    fw_setenv athena_home_partition 4
-    fw_setenv athena_dtb '/.rootdir/boot/zero-sugar.dtb'
-    fw_setenv athena_img '/.rootdir/boot/zImage'
-    fw_setenv athena_load_fdt 'ext4load mmc ${mmcdev}:${mmcpart} ${fdt_addr} ${athena_fdt}'
-    fw_setenv athena_load_img 'ext4load mmc ${mmcdev}:${mmcpart} ${loadaddr} ${athena_img}'
-    fw_setenv athena_boot_mmc 'mmc dev ${mmcdev}; if mmc rescan; then if run athena_load_img; then if run athena_load_fdt; then bootz ${loadaddr} - ${fdt_addr}; fi; fi; fi;'
-    fw_setenv athena_set_args 'setenv bootargs console=${console},${baudrate} root=/dev/mmcblk2p${active_partition} root_ro=/dev/mmcblk2p${active_partition} root_rw=/dev/mmcblk2p${athena_home_partition} quiet panic=20 systemd.crash_reboot crashkernel=64M'
-    fw_setenv athena_boot 'if test ${athena_fail} != 1; then setenv athena_fail 1; saveenv; then run athena_set_bootargs; setenv mmcpart ${active_partition}; run athena_boot_mmc; fi;'
+    fw_setenv athena_part 4
+    fw_setenv athena_boot 'if test ${athena_fail} != 1; then setenv athena_fail 1; saveenv; run athena_args; run athena_bmmc; setenv athena_fail 2; saveenv; fi;'
+    fw_setenv athena_bmmc 'mmc dev ${mmcdev}; if mmc rescan; then if run athena_limg; then if run athena_lfdt; then bootz ${loadaddr} - ${fdt_addr}; fi; fi; fi;'
+    fw_setenv athena_lfdt 'ext4load mmc ${mmcdev}:${athena_part} ${fdt_addr} /.rootdir/boot/zero-sugar.dtb'
+    fw_setenv athena_limg 'ext4load mmc ${mmcdev}:${athena_part} ${loadaddr} /.rootdir/boot/zImage'
+    fw_setenv athena_args 'setenv bootargs console=${console},${baudrate} root=/dev/mmcblk2p${active_partition} rootwait rootfstype=ext4 rw quiet panic=20 systemd.crash_reboot root_ro=/dev/mmcblk2p${active_partition} root_rw=/dev/mmcblk2p${athena_part} crashkernel=64M'
     
     echo -e "${BRED}Entering brickable phase! ${NORMAL}"
     echo -ne "${BORANGE}" ; read -p "Continue? (y/n) " -r REPLY ; echo -ne "\n" ; echo -ne "${NORMAL}\n"
@@ -168,6 +155,7 @@ function install() {
     systemctl start xochitl
     echo -e "${BGREEN}Athena has been installed ${BGREEN}:)${NORMAL}"
 }
+# General uninstallation
 function uninstall() {
     echo -e "${BRED}Entering brickable phase! ${NORMAL}"
     echo -ne "${BORANGE}" ; read -p "Continue? (y/n) " -r REPLY ; echo -ne "\n" ; echo -ne "${NORMAL}\n"
@@ -175,20 +163,18 @@ function uninstall() {
     
     echo -e "${BORANGE}Removing Athena uboot vars...${NORMAL}"
     fw_setenv athena_fail
-    fw_setenv athena_home_partition
-    fw_setenv athena_dtb
-    fw_setenv athena_img
-    fw_setenv athena_load_fdt
-    fw_setenv athena_load_img
-    fw_setenv athena_boot_mmc
-    fw_setenv athena_set_args
+    fw_setenv athena_part
     fw_setenv athena_boot
+    fw_setenv athena_bmmc
+    fw_setenv athena_lfdt
+    fw_setenv athena_limg
+    fw_setenv athena_args
     
     echo -e "${BGREEN}Removing Athena...${NORMAL}"
     systemctl stop xochitl
     
     echo -ne "${BORANGE}" ; read -p "Erase overlayfs root (recommended)? (y/n) " -r REPLY ; echo -ne "${NORMAL}\n"
-    [[ $REPLY =~ ^[Yy]$ ]] && rm -rf ${OVERLAYROOT}
+    [[ $REPLY =~ ^[Yy]$ ]] && rm -rf ${OVERLAYROOT} ${OVERLAYWORKROOT}
     
     echo -e "${BGREEN}Removing hooks from /home.${NORMAL}"
     rm -rf /home/root/.xochitlPlugins
@@ -201,14 +187,14 @@ function uninstall() {
     echo -e "${BGREEN}Athena has been removed. ${BRED}:(${NORMAL}"
 }
 
-echo -en "${BGREEN}Hello to the Athena setup, the first kernel and distro for the reMarkable 2 tablet!${NORMAL}\n"
-echo -en "${BYELLOW}Please note that this piece of software is highly experimental and you proceed at your own risk.${NORMAL}\n\n"
+echo -en "${BGREEN}Welcome to the Athena setup, the first kernel and distro for the reMarkable 2 tablet.${NORMAL}\n"
+echo -en "${BYELLOW}Please note that this piece of software is highly experimental and that you proceed at your own risk.${NORMAL}\n\n"
 if fw_printenv | grep athena > /dev/null ; then
     echo -e "${BGREEN}Athena has been detected.${NORMAL}"
     echo -ne "${BORANGE}" ; read -p "Uninstall? (y/n) " -r REPLY ; echo -ne "${NORMAL}\n"
     [[ $REPLY =~ ^[Yy]$ ]] && uninstall
 else
-    echo -e "${BGREEN}Athena has not been detected.${NORMAL}"
+    echo -e "${BGREEN}Athena has ${BYELLOW}not${BGREEN} been detected.${NORMAL}"
     echo -ne "${BORANGE}" ; read -p "Install? (y/n) " -r REPLY ; echo -ne "${NORMAL}\n"
     [[ $REPLY =~ ^[Yy]$ ]] && install
 fi
