@@ -53,7 +53,6 @@ function _installOPKG() {
 # Opkg configuration
 dest root /
 dest ram /opt/tmp
-dest overlayfs ${OVERLAYROOT}
 lists_dir ext /opt/var/opkg-lists
 option tmp_dir /opt/tmp
 CONF
