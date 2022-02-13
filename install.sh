@@ -124,7 +124,8 @@ function install() {
     systemctl stop xochitl
     
     echo -e "${BGREEN}Preparing overlayfs root.${NORMAL}"
-    mkdir -p ${OVERLAYROOT}/{etc,lib/systemd/system/}
+    mkdir -p ${OVERLAYROOT}/{etc,lib/systemd/system/,usr/sbin}
+    cp /usr/sbin/rootdev ${OVERLAYROOT}/usr/sbin/rootdev.old
     sed -r '\~^/dev/mmcblk[0-9]+p[0-9]+\s+/home\s~d' /etc/fstab > ${OVERLAYROOT}/etc/fstab
     sed "s|PATH=\"\(.*\)\"$|PATH=\"/opt/bin:/opt/sbin:\1\"|" /etc/profile > ${OVERLAYROOT}/etc/profile
     sed "s|\[Service\]|[Service]\nEnvironment=QML_XHR_ALLOW_FILE_READ=1\nEnvironment=QML_XHR_ALLOW_FILE_WRITE=1\nEnvironment=LD_PRELOAD=/usr/libexec/libAthenaXochitl.so|" /lib/systemd/system/xochitl.service > ${OVERLAYROOT}/lib/systemd/system/xochitl.service
