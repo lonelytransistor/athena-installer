@@ -128,7 +128,6 @@ function install() {
     cp /usr/sbin/rootdev ${OVERLAYROOT}/usr/sbin/rootdev.old
     sed -r '\~^/dev/mmcblk[0-9]+p[0-9]+\s+/home\s~d' /etc/fstab > ${OVERLAYROOT}/etc/fstab
     sed "s|PATH=\"\(.*\)\"$|PATH=\"/opt/bin:/opt/sbin:\1\"|" /etc/profile > ${OVERLAYROOT}/etc/profile
-    sed "s|\[Service\]|[Service]\nEnvironment=QML_XHR_ALLOW_FILE_READ=1\nEnvironment=QML_XHR_ALLOW_FILE_WRITE=1\nEnvironment=LD_PRELOAD=/usr/libexec/libAthenaXochitl.so|" /lib/systemd/system/xochitl.service > ${OVERLAYROOT}/lib/systemd/system/xochitl.service
     _installOPKG
     
     echo -e "${BGREEN}Moving hooks into /home.${NORMAL}"
@@ -136,9 +135,9 @@ function install() {
     rmdir --ignore-fail-on-non-empty ${OVERLAYROOT}/home/root
     rmdir --ignore-fail-on-non-empty ${OVERLAYROOT}/home
     
-    echo -e "${BRED}Patching Athena LD_PRELOAD into xochitl.service.${NORMAL}"
-    sed -i "s|\[Service\]|[Service]\nEnvironment=LD_PRELOAD=${OVERLAYROOT}/usr/libexec/libAthenaXochitl.so|" /lib/systemd/system/xochitl.service
-    systemctl daemon-reload
+    echo -e "${BRED}Adding Athena LD_PRELOAD into xochitl.service.d.${NORMAL}"
+    mkdir -p /etc/systemd/system/xochitl.service.d/
+    echo -ne "[Service]\nEnvironment=LD_PRELOAD=${OVERLAYROOT}/usr/libexec/libAthenaXochitl.so\n" /etc/systemd/system/xochitl.service.d/athena.conf
     
     echo -e "${BGREEN}Installing Athena uboot vars...${NORMAL}"
     fw_setenv athena_fail 1
@@ -181,7 +180,8 @@ function uninstall() {
     rm -rf /home/root/.xochitlPlugins
     
     echo -e "${BRED}Removing Athena LD_PRELOAD from xochitl.service.${NORMAL}"
-    sed -i '/Environment=LD_PRELOAD.*$/d' /lib/systemd/system/xochitl.service
+    rm /etc/systemd/system/xochitl.service.d/athena.conf
+    rmdir -p --ignore-fail-on-non-empty /etc/systemd/system/xochitl.service.d/
     systemctl daemon-reload
     
     systemctl start xochitl
